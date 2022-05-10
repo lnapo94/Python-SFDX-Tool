@@ -1,18 +1,10 @@
 import requests
-import xml.dom.minidom
-from base64 import b64encode, b64decode
-from xml.etree import ElementTree as ET
+from bs4 import BeautifulSoup
+from base64 import b64decode
 from .exceptions import SalesforceAuthenticationFailed
 from .soap_messages import LOGIN_MSG, DEPLOY_MSG, CHECK_DEPLOY_STATUS_MSG, RETRIEVE_MSG, CHECK_RETRIEVE_STATUS_MSG
 
-import click
-
 class Sfdc:
-
-  _XML_NAMESPACES = {
-    'soapenv': 'http://schemas.xmlsoap.org/soap/envelope/',
-    'mt': 'http://soap.sforce.com/2006/04/metadata'
-    }
 
   def __init__(self, username, password, url, apiVersion):
     """
@@ -22,6 +14,12 @@ class Sfdc:
     self.username = username
     self.password = password
     self.apiVersion = apiVersion
+    self.sessionId = None
+    self.serverUrl = None
+    self.metadataUrl = None
+    self.asyncProcessId = None
+
+    self.retrieveResult = None
 
   def login(self):
     """
@@ -43,16 +41,18 @@ class Sfdc:
 
     # Make the request
     response = requests.post(url=login_url, data=login_soap_body, headers=login_soap_request_headers)
+    soup = BeautifulSoup(response.text, 'xml')
 
     if response.status_code == 200:
       # If the request was good, parse it to obtain SessionID and ServerURL
-      self.__sessionId = self.__getUniqueElementValueFromXmlString(response.text, 'sessionId')
-      self.__serverUrl = self.__getUniqueElementValueFromXmlString(response.text, 'serverUrl')
+      self.sessionId = soup.find('sessionId').text
+      self.serverUrl = soup.find('serverUrl').text
+      self.metadataUrl = soup.find('serverUrl').text.replace('/u/', '/m/')
     else:
       # Othewise, throw an exception
-      except_code = self.__getUniqueElementValueFromXmlString(response.content, 'sf:exceptionCode')
-      except_msg = self.__getUniqueElementValueFromXmlString(response.content, 'sf:exceptionMessage')
-      raise SalesforceAuthenticationFailed(response.status_code, except_msg)
+      except_code = soup.find('sf:exceptionCode').text
+      except_msg = soup.find('sf:exceptionMessage').text
+      raise SalesforceAuthenticationFailed(except_code, except_msg)
 
   def retrieve(self, package):
     """
@@ -67,28 +67,18 @@ class Sfdc:
     }
 
     # Get the Retrieve SOAP Message and complete it with additional information
-    retrieve_soap_body = RETRIEVE_MSG.format(sessionId=self.__sessionId, apiVersion=self.apiVersion, singlePackage=True, unpackaged=package)
-
-    # Build the actual Retrieve URL
-    retrieve_url = self.__serverUrl.replace('/u/', '/m/')
+    retrieve_soap_body = RETRIEVE_MSG.format(sessionId=self.sessionId, apiVersion=self.apiVersion, singlePackage=True, unpackaged=package)
 
     # Make the request
-    response = requests.post(url=retrieve_url, data=retrieve_soap_body, headers=retrieve_soap_request_headers)
+    response = requests.post(url=self.metadataUrl, data=retrieve_soap_body, headers=retrieve_soap_request_headers)
 
-    # Parse response to get Async Id and its Status
-    async_process_id = ET.fromstring(response.text).find(
-      'soapenv:Body/mt:retrieveResponse/mt:result/mt:id',
-      self._XML_NAMESPACES).text
-    status = ET.fromstring(response.text).find(
-      'soapenv:Body/mt:retrieveResponse/mt:result/mt:state',
-      self._XML_NAMESPACES).text
+    # Parse response to get Async Id
+    soup = BeautifulSoup(response.text, 'xml')
+    self.asyncProcessId = soup.Envelope.Body.retrieveResponse.result.id.text
 
-    return async_process_id, status
-
-  def isRetrievingMetadata(self, asyncProcessId):
+  def isRetrievingMetadata(self):
     """
     Checks the status of a retrieve request.
-    TODO: To be implemented
     """
 
     # Setup the headers for the request
@@ -99,63 +89,118 @@ class Sfdc:
     }
 
     # Get the Retrieve SOAP Message and complete it with additional information
-    retrieve_status_soap_body = CHECK_RETRIEVE_STATUS_MSG.format(sessionId=self.__sessionId, asyncProcessId=asyncProcessId, includeZip=True)
-
-    # Build the actual Retrieve URL
-    retrieve_status_url = self.__serverUrl.replace('/u/', '/m/')
+    retrieve_status_soap_body = CHECK_RETRIEVE_STATUS_MSG.format(sessionId=self.sessionId, asyncProcessId=self.asyncProcessId, includeZip=True)
 
     # Make the request
-    response = requests.post(url=retrieve_status_url, data=retrieve_status_soap_body, headers=retrieve_status_soap_request_headers)
+    response = requests.post(url=self.metadataUrl, data=retrieve_status_soap_body, headers=retrieve_status_soap_request_headers)
 
     # Parse response to check retrieving status
-    root = ET.fromstring(response.text)
-    result = root.find('soapenv:Body/mt:checkRetrieveStatusResponse/mt:result/mt:done', self._XML_NAMESPACES)
+    soup = BeautifulSoup(response.text, 'xml')
+    result = soup.Body.checkRetrieveStatusResponse.result.done
 
     if result is None:
       raise Exception(f'Result node could not be found: {response.text}')
     elif result.text == 'true':
-      self.__retrieveResult = response.text
+      self.retrieveResult = response.text
       return True
     else:
       return False
 
   def getZipFile(self):
-    if self.__retrieveResult is not None:
-      root = ET.fromstring(self.__retrieveResult)
-      result = root.find('soapenv:Body/mt:checkRetrieveStatusResponse/mt:result', self._XML_NAMESPACES)
-      zipfile_base64 = result.find('mt:zipFile', self._XML_NAMESPACES).text
+    if self.retrieveResult is not None:
+      soup = BeautifulSoup(self.retrieveResult, 'xml')
+      zipfile_base64 = soup.Body.checkRetrieveStatusResponse.result.zipFile.text
       return b64decode(zipfile_base64)
 
-  def deploy(self):
+  def deploy(self, zipFile, testLevel: str, runTests=[], validateOnly=False):
     """
     Submit a deploy request to SFDC Metadata API.
-    TODO: To be implemented
     """
-    pass
+    attributes = {
+      'sessionId': self.sessionId,
+      'ZipFile': zipFile,
+      'allowMissingFiles': False,
+      'autoUpdatePackage': False,
+      'checkOnly': validateOnly,
+      'ignoreWarnings': False,
+      'performRetrieve': False,
+      'purgeOnDelete': False,
+      'rollbackOnError': True,
+      'singlePackage': True
+    }
 
-  def checkDeployStatus(self, asyncProcessId):
+    if testLevel:
+      attributes['testLevel'] = '<met:testLevel>{}</met:testLevel>'.format(testLevel)
+    
+    testsTag = ''
+    if runTests and str(testLevel).lower() == 'runspecifiedtests':
+      for test in runTests:
+        testsTag += '<met:runTests>{}</met:runTests>'.format(test)
+    attributes['tests'] = testsTag
+
+    # Setup the headers for the request
+    deploy_soap_request_headers = {
+      'content-type': 'text/xml',
+      'charset': 'UTF-8',
+      'SOAPAction': 'deploy'
+    }
+
+    # Get the Retrieve SOAP Message and complete it with additional information
+    deploy_soap_body = DEPLOY_MSG.format(**attributes)
+
+    # Make the request
+    response = requests.post(url=self.metadataUrl, data=deploy_soap_body, headers=deploy_soap_request_headers)
+
+    # Parse response to get Async Id
+    soup = BeautifulSoup(response.text, 'xml')
+    self.asyncProcessId = soup.Envelope.Body.deployResponse.result.id.text
+
+
+  def isDeploying(self):
     """
     Checks the status of a Deploy request.
-    TODO: To be implemented
     """
-    pass
+     # Setup the headers for the request
+    deploy_status_soap_request_headers = {
+      'content-type': 'text/xml',
+      'charset': 'UTF-8',
+      'SOAPAction': 'checkDeployStatus'
+    }
 
-  def __getUniqueElementValueFromXmlString(self, xmlString, elementName):
-    """
-    Extracts an element value from an XML string.
-    For example, invoking
-    getUniqueElementValueFromXmlString(
-        '<?xml version="1.0" encoding="UTF-8"?><foo>bar</foo>', 'foo')
-    should return the value 'bar'.
-    """
-    xmlStringAsDom = xml.dom.minidom.parseString(xmlString)
-    elementsByName = xmlStringAsDom.getElementsByTagName(elementName)
-    elementValue = None
-    if len(elementsByName) > 0:
-      elementValue = (
-        elementsByName[0]
-        .toxml()
-        .replace('<' + elementName + '>', '')
-        .replace('</' + elementName + '>', '')
-      )
-    return elementValue
+    # Get the Deploy SOAP Message and complete it with additional information
+    deploy_status_soap_body = CHECK_DEPLOY_STATUS_MSG.format(sessionId=self.sessionId, asyncProcessId=self.asyncProcessId, includeDetails=True)
+
+    # Make the request
+    response = requests.post(url=self.metadataUrl, data=deploy_status_soap_body, headers=deploy_status_soap_request_headers)
+
+    # Parse response to check retrieving status
+    soup = BeautifulSoup(response.text, 'xml')
+    result = soup.Body.checkDeployStatusResponse.result.done
+
+    numberComponentsDeployed = soup.Body.checkDeployStatusResponse.result.numberComponentsDeployed.text
+    numberComponentErrors = soup.Body.checkDeployStatusResponse.result.numberComponentErrors.text
+    numberComponentsTotal = soup.Body.checkDeployStatusResponse.result.numberComponentsTotal.text
+
+    numberTestsCompleted = soup.Body.checkDeployStatusResponse.result.numberTestsCompleted.text
+    numberTestErrors = soup.Body.checkDeployStatusResponse.result.numberTestErrors.text
+    numberTestsTotal = soup.Body.checkDeployStatusResponse.result.numberTestsTotal.text
+
+    stateDetail = soup.Body.checkDeployStatusResponse.result.stateDetail
+
+    status = soup.Body.checkDeployStatusResponse.result.status.text
+
+    print('Status: {}'.format(status))
+
+    print('Deployment: {} / {} [Errors: {}]'.format(numberComponentsDeployed, numberComponentsTotal, numberComponentErrors))
+    print('Tests: {} / {} [Errors: {}]'.format(numberTestsCompleted, numberTestsTotal, numberTestErrors))
+
+    if stateDetail:
+      print('State Detail: {}'.format(stateDetail.text))
+
+    if result is None:
+      raise Exception(f'Result node could not be found: {response.text}')
+    elif result.text == 'true':
+      self.retrieveResult = response.text
+      return True
+    else:
+      return False
