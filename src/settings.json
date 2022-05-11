@@ -1,0 +1,4 @@
+{
+  "preDeploy": [],
+  "postRetrieve": ["my_awesome_plugin.my_beautiful_plugin"]
+}

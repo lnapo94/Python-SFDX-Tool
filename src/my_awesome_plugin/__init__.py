@@ -1,0 +1,1 @@
+from .my_beautiful_plugin import func1

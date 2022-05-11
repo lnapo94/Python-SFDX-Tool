@@ -177,30 +177,28 @@ class Sfdc:
     soup = BeautifulSoup(response.text, 'xml')
     result = soup.Body.checkDeployStatusResponse.result.done
 
-    numberComponentsDeployed = soup.Body.checkDeployStatusResponse.result.numberComponentsDeployed.text
-    numberComponentErrors = soup.Body.checkDeployStatusResponse.result.numberComponentErrors.text
-    numberComponentsTotal = soup.Body.checkDeployStatusResponse.result.numberComponentsTotal.text
+    deployResult = {
+      'numberComponentsDeployed': int(soup.Body.checkDeployStatusResponse.result.numberComponentsDeployed.text),
+      'numberComponentErrors': int(soup.Body.checkDeployStatusResponse.result.numberComponentErrors.text),
 
-    numberTestsCompleted = soup.Body.checkDeployStatusResponse.result.numberTestsCompleted.text
-    numberTestErrors = soup.Body.checkDeployStatusResponse.result.numberTestErrors.text
-    numberTestsTotal = soup.Body.checkDeployStatusResponse.result.numberTestsTotal.text
+      'componentsDone': int(soup.Body.checkDeployStatusResponse.result.numberComponentsDeployed.text) + int(soup.Body.checkDeployStatusResponse.result.numberComponentErrors.text),
+      'numberComponentsTotal': int(soup.Body.checkDeployStatusResponse.result.numberComponentsTotal.text),
 
-    stateDetail = soup.Body.checkDeployStatusResponse.result.stateDetail
+      'numberTestsCompleted': int(soup.Body.checkDeployStatusResponse.result.numberTestsCompleted.text),
+      'numberTestErrors': int(soup.Body.checkDeployStatusResponse.result.numberTestErrors.text),
 
-    status = soup.Body.checkDeployStatusResponse.result.status.text
+      'testsDone': int(soup.Body.checkDeployStatusResponse.result.numberTestsCompleted.text) + int(soup.Body.checkDeployStatusResponse.result.numberTestErrors.text),
+      'numberTestsTotal': int(soup.Body.checkDeployStatusResponse.result.numberTestsTotal.text),
 
-    print('Status: {}'.format(status))
+      'stateDetail': soup.Body.checkDeployStatusResponse.result.stateDetail.text if soup.Body.checkDeployStatusResponse.result.stateDetail else None,
 
-    print('Deployment: {} / {} [Errors: {}]'.format(numberComponentsDeployed, numberComponentsTotal, numberComponentErrors))
-    print('Tests: {} / {} [Errors: {}]'.format(numberTestsCompleted, numberTestsTotal, numberTestErrors))
-
-    if stateDetail:
-      print('State Detail: {}'.format(stateDetail.text))
+      'status': soup.Body.checkDeployStatusResponse.result.status.text,
+    }
 
     if result is None:
       raise Exception(f'Result node could not be found: {response.text}')
     elif result.text == 'true':
       self.retrieveResult = response.text
-      return True
+      return (True, deployResult)
     else:
-      return False
+      return (False, deployResult)

@@ -2,6 +2,7 @@ import click
 import os
 import time
 import io
+import sys
 from distutils import dir_util
 
 import subprocess
@@ -13,6 +14,7 @@ from yaspin import yaspin
 from zipfile import ZipFile
 
 from sfdc import Sfdc
+from engine.plugin_engine import PluginEngine
 from utils import sfdc_utils
 
 DEFAULT_SRC = os.path.join(os.getcwd(), 'src')
@@ -28,7 +30,8 @@ def main():
 @click.option('--package', 'packageFile', help='Path to the "package.xml" file', default=f'{DEFAULT_SRC}/package.xml', type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option('-s', '--sandbox', 'isSandbox', help='Set SFDC URL to sandbox', is_flag=True, default=False)
 @click.option('-o', '--output', 'outputPath', help='Output directory', default=DEFAULT_SRC, type=click.Path(exists=True, file_okay=False, dir_okay=True))
-def retrieve(username, password, packageFile, isSandbox, outputPath):
+@click.option('-se', '--settingFile', 'settingFile', help='Setting file', default=f'{DEFAULT_SRC}/settings.json', type=click.Path(exists=True, file_okay=True, dir_okay=False))
+def retrieve(username, password, packageFile, isSandbox, outputPath, settingFile):
   """Retrieve metadatas specified inside the "package.xml" from Salesforce"""
 
   sfdcURL = sfdc_utils.sfdc_url(isSandbox)
@@ -65,6 +68,10 @@ def retrieve(username, password, packageFile, isSandbox, outputPath):
   for file in archive.namelist():
     archive.extract(file, path=outputPath)
 
+  pe = PluginEngine(settingFile=settingFile, outputFolder=outputPath)
+
+  pe.postRetrieve()
+
 
 @main.command(name='deploy')
 @click.option('-u', '--username', 'username', required=True, help='Salesforce username')
@@ -74,7 +81,8 @@ def retrieve(username, password, packageFile, isSandbox, outputPath):
 @click.option('-t', '--testLevel', 'testLevel', help='Test level', default='NoTestRun', type=click.Choice(['RunAllTests', 'RunSpecifiedTests', 'RunLocalTests', 'NoTestRun']))
 @click.option('-r', '--runTests', 'runTests', help='Test to be run if selected "RunSpecifiedTests"', default=[])
 @click.option('-v', '--validate', 'validate', help='Perform only a validation', is_flag=True, default=False)
-def deploy(username, password, packageFile, isSandbox, testLevel, runTests, validate):
+@click.option('-se', '--settingFile', 'settingFile', help='Setting file', default=f'{DEFAULT_SRC}/settings.json', type=click.Path(exists=True, file_okay=True, dir_okay=False))
+def deploy(username, password, packageFile, isSandbox, testLevel, runTests, validate, settingFile):
   """Initiate a validation/deployment process on Salesforce"""
   sfdcURL = sfdc_utils.sfdc_url(isSandbox)
 
@@ -87,6 +95,10 @@ def deploy(username, password, packageFile, isSandbox, testLevel, runTests, vali
   print('{:<30}{:<40}'.format(click.style('API Version: ', fg='yellow'), click.style(packageVersion, fg='green')))
   print('\n{:<30}{:<40}\n'.format(click.style('Validate or Deploy: ', fg='yellow'), click.style('Validate' if validate else 'Deploy', fg='green')))
 
+  pe = PluginEngine(settingFile=settingFile, outputFolder=packageFile.rpartition('/')[0])
+
+  pe.preDeploy()
+
   connection = Sfdc(username, password, sfdcURL, packageVersion)
 
   print(click.style('Connecting to SFDC...', fg='bright_black'))
@@ -95,13 +107,44 @@ def deploy(username, password, packageFile, isSandbox, testLevel, runTests, vali
 
   zipFile = sfdc_utils.zipDirectory(packageFile.rpartition('/')[0])
 
-  print(click.style('Submit {} request...'.format('deploy' if not validate else 'validation'), fg='bright_black'))
+  print(click.style('Submitting {} request...'.format('deploy' if not validate else 'validation'), fg='bright_black'))
   connection.deploy(zipFile, testLevel=testLevel, runTests=runTests, validateOnly=validate)
+  print('{}{}'.format(click.style('Async ID: ', fg='yellow'), click.style(connection.asyncProcessId, fg='green')))
 
+  spinner = yaspin(text=click.style('Waiting for {} to start...'.format('deployment' if not validate else 'validation'), fg='bright_black'), color="green")
+  spinner.start()
   deploy_start = time.time()
 
-  while not connection.isDeploying():
-    time.sleep(5)
+  deployFinished, deployResult = connection.isDeploying()
+
+  while not deployFinished:
+    if deployResult['numberComponentsTotal'] + deployResult['numberTestsTotal'] > 0:
+      spinner.stop()
+      progress(deployResult['componentsDone'] + deployResult['testsDone'], deployResult['numberComponentsTotal'] + deployResult['numberTestsTotal'], suffix='[{}/{}]'.format(deployResult['componentsDone'] + deployResult['testsDone'], deployResult['numberComponentsTotal'] + deployResult['numberTestsTotal']))
+    time.sleep(1)
+    deployFinished, deployResult = connection.isDeploying()
+
+  if deployResult['status'] == 'Failed':
+    spinner.text = '{} {}'.format(click.style('{} Failed'.format('Deployment' if not validate else 'Validation'), fg='red'), click.style('[Elapsed time: {}]'.format(timedelta(seconds=int(time.time() - deploy_start))), fg='bright_black'))
+    spinner.fail("❌")
+    click.echo(click.style('Broken components: {}, Broken tests: {}'.format(deployResult['numberComponentErrors'], deployResult['numberTestErrors']), fg='red'))
+  elif deployResult['status'] == 'Canceled':
+    spinner.text = '{} {}'.format(click.style('{} Canceled'.format('Deployment' if not validate else 'Validation'), fg='grey'), click.style('[Elapsed time: {}]'.format(timedelta(seconds=int(time.time() - deploy_start))), fg='bright_black'))
+    spinner.fail("🚫")
+  else:
+    spinner.text = '{} {}'.format(click.style('{} Completed'.format('Deployment' if not validate else 'Validation'), fg='green'), click.style('[Elapsed time: {}]'.format(timedelta(seconds=int(time.time() - deploy_start))), fg='bright_black'))
+    spinner.ok("✅")
+    
+
+
+def progress(count, total, bar_len=60, suffix=''):
+  filled_len = int(round(bar_len * count / float(total)))
+
+  percents = round(100.0 * count / float(total), 1)
+  bar = '=' * filled_len + '-' * (bar_len - filled_len)
+
+  sys.stdout.write('[%s] %s%s %s\r' % (bar, percents, '%', suffix))
+  sys.stdout.flush()
 
 
 @main.command(name='retrieve-sfdx')
