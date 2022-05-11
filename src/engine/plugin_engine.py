@@ -29,17 +29,16 @@ class PluginEngine:
     self.__run(self.postRetrieveScripts)
 
   def __run(self, scripts):
-
+    sys.path.append(os.getcwd())
     helper = Helper(self.outputFolder)
     
     for script in scripts:
       module = __import__(script)
       for funcName, func in getmembers(module, isfunction):
-        print('Running {}...'.format(funcName))
         func(os.environ, helper)
-        print('{} finished'.format(funcName))
     
 
 if __name__ == '__main__':
-  test = PluginEngine()
+  test = PluginEngine(settingFile='./settings.json', outputFolder='../../srctemp/')
+  print(test.postRetrieveScripts)
   test.postRetrieve()

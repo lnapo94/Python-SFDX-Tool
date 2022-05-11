@@ -9,8 +9,7 @@ requests = "2.27.1"
 yaspin = "2.1.0"
 beautifulsoup4 = "4.11.1"
 lxml = "4.8.0"
-xml2dict = "*"
-xmltodict = "*"
+xmltodict = "0.13.0"
 
 [dev-packages]
 

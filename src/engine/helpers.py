@@ -1,5 +1,5 @@
 import xmltodict
-import json
+import shutil
 import glob
 import os
 import click
@@ -8,6 +8,13 @@ class Helper:
 
   def __init__(self, outputDir):
     self.outputDir = outputDir
+
+  def removeFolders(self, path):
+    srcPath = f'{self.outputDir}/{path}'
+    try:
+      shutil.rmtree(srcPath)
+    except:
+      print(click.style(f"Error while deleting folder : {srcPath}", fg='red'))
 
   def filterMetadata(self, path):
     srcPath = f'{self.outputDir}/{path}'

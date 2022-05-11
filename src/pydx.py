@@ -14,14 +14,16 @@ from yaspin import yaspin
 from zipfile import ZipFile
 
 from sfdc import Sfdc
+
 from engine.plugin_engine import PluginEngine
 from utils import sfdc_utils
 
 DEFAULT_SRC = os.path.join(os.getcwd(), 'src')
+PWD = os.getcwd()
 
 @click.group()
 def main():
-  """Python SFDX Toolkit"""
+  """PYDX: A revisited Salesforce SFDX CLI Toolkit"""
   pass
 
 @main.command(name='retrieve')
@@ -30,7 +32,7 @@ def main():
 @click.option('--package', 'packageFile', help='Path to the "package.xml" file', default=f'{DEFAULT_SRC}/package.xml', type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option('-s', '--sandbox', 'isSandbox', help='Set SFDC URL to sandbox', is_flag=True, default=False)
 @click.option('-o', '--output', 'outputPath', help='Output directory', default=DEFAULT_SRC, type=click.Path(exists=True, file_okay=False, dir_okay=True))
-@click.option('-se', '--settingFile', 'settingFile', help='Setting file', default=f'{DEFAULT_SRC}/settings.json', type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option('-se', '--settingFile', 'settingFile', help='Setting file', default=f'{PWD}/settings.json', type=click.Path(exists=True, file_okay=True, dir_okay=False))
 def retrieve(username, password, packageFile, isSandbox, outputPath, settingFile):
   """Retrieve metadatas specified inside the "package.xml" from Salesforce"""
 
@@ -44,6 +46,7 @@ def retrieve(username, password, packageFile, isSandbox, outputPath, settingFile
   print('{:<30}{:<40}'.format(click.style('Package.xml file: ', fg='yellow'), click.style(packageFile, fg='green')))
   print('{:<30}{:<40}'.format(click.style('API Version: ', fg='yellow'), click.style(packageVersion, fg='green')))
   print('{:<30}{:<40}'.format(click.style('Output directory: ', fg='yellow'), click.style(outputPath, fg='green')))
+  print('{:<30}{:<40}'.format(click.style('Setting File: ', fg='yellow'), click.style(settingFile, fg='green')))
 
   connection = Sfdc(username, password, sfdcURL, packageVersion)
 
@@ -81,7 +84,7 @@ def retrieve(username, password, packageFile, isSandbox, outputPath, settingFile
 @click.option('-t', '--testLevel', 'testLevel', help='Test level', default='NoTestRun', type=click.Choice(['RunAllTests', 'RunSpecifiedTests', 'RunLocalTests', 'NoTestRun']))
 @click.option('-r', '--runTests', 'runTests', help='Test to be run if selected "RunSpecifiedTests"', default=[])
 @click.option('-v', '--validate', 'validate', help='Perform only a validation', is_flag=True, default=False)
-@click.option('-se', '--settingFile', 'settingFile', help='Setting file', default=f'{DEFAULT_SRC}/settings.json', type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option('-se', '--settingFile', 'settingFile', help='Setting file', default=f'{PWD}/settings.json', type=click.Path(exists=True, file_okay=True, dir_okay=False))
 def deploy(username, password, packageFile, isSandbox, testLevel, runTests, validate, settingFile):
   """Initiate a validation/deployment process on Salesforce"""
   sfdcURL = sfdc_utils.sfdc_url(isSandbox)
@@ -129,13 +132,11 @@ def deploy(username, password, packageFile, isSandbox, testLevel, runTests, vali
     spinner.fail("❌")
     click.echo(click.style('Broken components: {}, Broken tests: {}'.format(deployResult['numberComponentErrors'], deployResult['numberTestErrors']), fg='red'))
   elif deployResult['status'] == 'Canceled':
-    spinner.text = '{} {}'.format(click.style('{} Canceled'.format('Deployment' if not validate else 'Validation'), fg='grey'), click.style('[Elapsed time: {}]'.format(timedelta(seconds=int(time.time() - deploy_start))), fg='bright_black'))
+    spinner.text = '{} {}'.format(click.style('{} Canceled'.format('Deployment' if not validate else 'Validation'), fg='bright_black'), click.style('[Elapsed time: {}]'.format(timedelta(seconds=int(time.time() - deploy_start))), fg='bright_black'))
     spinner.fail("🚫")
   else:
     spinner.text = '{} {}'.format(click.style('{} Completed'.format('Deployment' if not validate else 'Validation'), fg='green'), click.style('[Elapsed time: {}]'.format(timedelta(seconds=int(time.time() - deploy_start))), fg='bright_black'))
     spinner.ok("✅")
-    
-
 
 def progress(count, total, bar_len=60, suffix=''):
   filled_len = int(round(bar_len * count / float(total)))
@@ -143,7 +144,7 @@ def progress(count, total, bar_len=60, suffix=''):
   percents = round(100.0 * count / float(total), 1)
   bar = '=' * filled_len + '-' * (bar_len - filled_len)
 
-  sys.stdout.write('[%s] %s%s %s\r' % (bar, percents, '%', suffix))
+  sys.stdout.write(click.style('[%s] %s%s %s\r' % (bar, percents, '%', suffix), fg='yellow'))
   sys.stdout.flush()
 
 
@@ -166,6 +167,25 @@ def retrieveSFDX(folder, orgAlias, packageFile):
 
   os.remove(f'{folder}/unpackaged.zip')
   dir_util.remove_tree(f'{folder}/unpackaged')
+
+@main.command(name='deploy-sfdx')
+@click.option('-f', '--folder', 'folder', required=True, help='Where metadata and package.xml are', default=DEFAULT_SRC, type=click.Path(exists=True))
+@click.option('-o', '--orgalias', 'orgAlias', required=True, help='The organization alias')
+@click.option('-v', '--validate', 'validate', help='Perform only a validation', is_flag=True, default=False)
+@click.option('-l', '--runLocalTests', 'runLocalTests', help='Run also Local Tests for this deploy', is_flag=True, default=False)
+def deploySFDX(folder, orgAlias, validate, runLocalTests):
+  """Using the standard SFDX Salesforce CLI, performs a deploy operation"""
+  click.echo('Deploy SFDX')
+
+  command = ['sfdx', 'force:mdapi:deploy', '-d', folder, '-u', orgAlias, '-w', '10']
+
+  if validate:
+    command.append('-c')
+
+  if runLocalTests:
+    command.append('-l')
+
+  result = subprocess.run(command)
   
 if __name__ == '__main__':
   main()
