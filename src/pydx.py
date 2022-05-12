@@ -32,7 +32,7 @@ def main():
 @click.option('--package', 'packageFile', help='Path to the "package.xml" file', default=f'{DEFAULT_SRC}/package.xml', type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option('-s', '--sandbox', 'isSandbox', help='Set SFDC URL to sandbox', is_flag=True, default=False)
 @click.option('-o', '--output', 'outputPath', help='Output directory', default=DEFAULT_SRC, type=click.Path(exists=True, file_okay=False, dir_okay=True))
-@click.option('-se', '--settingFile', 'settingFile', help='Setting file', default=f'{PWD}/settings.json', type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option('-se', '--settingFile', 'settingFile', help='Setting file', default=f'{PWD}/pydx.json', type=click.Path(exists=True, file_okay=True, dir_okay=False))
 def retrieve(username, password, packageFile, isSandbox, outputPath, settingFile):
   """Retrieve metadatas specified inside the "package.xml" from Salesforce"""
 
@@ -84,7 +84,7 @@ def retrieve(username, password, packageFile, isSandbox, outputPath, settingFile
 @click.option('-t', '--testLevel', 'testLevel', help='Test level', default='NoTestRun', type=click.Choice(['RunAllTests', 'RunSpecifiedTests', 'RunLocalTests', 'NoTestRun']))
 @click.option('-r', '--runTests', 'runTests', help='Test to be run if selected "RunSpecifiedTests"', default=[])
 @click.option('-v', '--validate', 'validate', help='Perform only a validation', is_flag=True, default=False)
-@click.option('-se', '--settingFile', 'settingFile', help='Setting file', default=f'{PWD}/settings.json', type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option('-se', '--settingFile', 'settingFile', help='Setting file', default=f'{PWD}/pydx.json', type=click.Path(exists=True, file_okay=True, dir_okay=False))
 def deploy(username, password, packageFile, isSandbox, testLevel, runTests, validate, settingFile):
   """Initiate a validation/deployment process on Salesforce"""
   sfdcURL = sfdc_utils.sfdc_url(isSandbox)
@@ -101,6 +101,10 @@ def deploy(username, password, packageFile, isSandbox, testLevel, runTests, vali
   pe = PluginEngine(settingFile=settingFile, outputFolder=packageFile.rpartition('/')[0])
 
   pe.preDeploy()
+
+  if not isSandbox and testLevel == 'NoTestRun':
+    print(click.style("Since you're {} in PROD, tests must be run\n".format('deploying' if not validate else 'validating'), fg='yellow'))
+    testLevel = 'RunLocalTests'
 
   connection = Sfdc(username, password, sfdcURL, packageVersion)
 
