@@ -3,7 +3,6 @@ import shutil
 import glob
 import os
 import click
-
 class Helper:
 
   def __init__(self, outputDir):
@@ -51,3 +50,25 @@ class Helper:
 
       fw = open(fileName, 'w')
       fw.write(doc)
+
+  def removeLayoutsForStandardObjectsNotInPackage(self, packageFile):
+    srcPath = f'{self.outputDir}/layouts/*.layout'
+
+    package = open(f'{self.outputDir}/{packageFile}', 'r')
+
+    doc = xmltodict.parse(package.read())
+
+    members = []
+    for type in doc['Package']['types']:
+      if type['name'] == 'CustomObject':
+        members = list(filter(lambda member: member != '*' and '__c' not in member, type['members']))
+
+    for filePath in glob.glob(srcPath):
+      fileName = os.path.basename(filePath).partition('-')[0]
+      if fileName not in members:
+        if fileName == 'PersonAccount' and 'Account' in members:
+          pass
+        elif (fileName == 'CaseClose' or fileName == 'CaseInteraction') and 'Case' in members:
+          pass
+        elif '__c' not in fileName and '__mdt' not in fileName:
+          os.remove(filePath)
