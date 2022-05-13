@@ -101,21 +101,21 @@ This pre-implemented functions are divided into 2 main categories:
 - plugins: callbacks used to perform specific tasks hardcoded inside the plugin itself. They are available in all your plugins importing the `standard_plugin` package.
 
 #### Standard Helpers
-| Name                                            | Description                                                                            | Usage                                                              |
-| ----------------------------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| __editXML__                                     | Read an XML file and parse it as Dictionary to be modified by the callback function    | `helpers.editXML(path, callback)`                                  |
-| __filterMetadata__                              | Remove the metadata (files) specified within the given path                            | `helpers.filterMetadata(path)`                                     |
-| __editRawFile__                                 | Read a file and parse it as a simple string to be modified by the callback function    | `helpers.editRawFile(path, callback)`                              |
-| __removeFolders__                               | Remove all the folders (and their content) specified within the given path             | `helpers.removeFolders(path)`                                      |
-| __removeLayoutsForStandardObjectsNotInPackage__ | Remove all the layouts for the standard objects __NOT__ specified in the given package | `helpers.removeLayoutsForStandardObjectsNotInPackage(packageFile)` |
+| Name                      | Description                                                                            | Usage                                        |
+| ------------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------- |
+| __editXML__               | Read an XML file and parse it as Dictionary to be modified by the callback function    | `helpers.editXML(path, callback)`            |
+| __filterMetadata__        | Remove the metadata (files) specified within the given path                            | `helpers.filterMetadata(path)`               |
+| __editRawFile__           | Read a file and parse it as a simple string to be modified by the callback function    | `helpers.editRawFile(path, callback)`        |
+| __removeFolders__         | Remove all the folders (and their content) specified within the given path             | `helpers.removeFolders(path)`                |
+| __removeStandardLayouts__ | Remove all the layouts for the standard objects __NOT__ specified in the given package | `helpers.removeStandardLayouts(packageFile)` |
 
 #### Standard Plugins
-| Name                                  | Description                                                                                                                                   | Usage                                                                                                 |
-| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------|
-| __enableClassAccessLevel__            | Enable all class accesses to the profiles within the given path                                                                               | `helpers.editXML('profiles/*.profile', standard_plugins.enableClassAccessLevel)`                      |
-| __deleteProfilePermissions__          | Remove all user permissions from the profile within the given path                                                                            | `helpers.editXML('profiles/*.profile', standard_plugins.deleteProfilePermissions)`                    |
-| __removeOAuthConfigFromConnectedApp__ | Remove the Consumer Key from the Connected Apps within the given path                                                                         | `helpers.editXML('connectedApps/*.connectedApp', standard_plugins.removeOAuthConfigFromConnectedApp)` |
-| __removeUselessListViews__            | Remove standard list views (inside Task and Event object) that, for absolutely no reason, are duplicated in each deploy by Salesforce         | `helpers.editXML('objects/Task.object', standard_plugins.removeUselessListViews)`                     |
+| Name                         | Description                                                                                          | Usage                                                                                 |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| __enableClassAccessLevel__   | Enable all class accesses to the profiles within the given path                                      | `helpers.editXML('profiles/*.profile', standard_plugins.enableClassAccessLevel)`      |
+| __deleteProfilePermissions__ | Remove all user permissions from the profile within the given path                                   | `helpers.editXML('profiles/*.profile', standard_plugins.deleteProfilePermissions)`    |
+| __removeOAuthConfig__        | Remove the Consumer Key from the Connected Apps within the given path                                | `helpers.editXML('connectedApps/*.connectedApp', standard_plugins.removeOAuthConfig)` |
+| __removeUselessListViews__   | Remove standard list views (inside Task and Event object) that usually mess up during the deployment | `helpers.editXML('objects/Task.object', standard_plugins.removeUselessListViews)`     |
 
 ### Build your own plugins
 

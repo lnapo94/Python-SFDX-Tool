@@ -13,7 +13,7 @@ def deleteProfilePermissions(fileName, data):
       if userPermission['name'] in permissionsToRemove:
         data['Profile']['userPermissions'].remove(userPermission)
 
-def removeOAuthConfigFromConnectedApp(fileName, data):
+def removeOAuthConfig(fileName, data):
   """Remove OAuth consumer key from connected apps (it is regenerated automatically in each Salesforce org)"""
   if 'consumerKey' in data['ConnectedApp']['oauthConfig']:
     del data['ConnectedApp']['oauthConfig']['consumerKey']
