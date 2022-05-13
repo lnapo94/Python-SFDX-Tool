@@ -39,7 +39,7 @@ Once installed, go to the root folder of a Salesforce project and type:
 ```
 pydx init
 ```
-which will create a *pydx.json* file in the root folder of your current workspace with a standard configuration.
+which will create a *pydx.json* file in the root folder of your current workspace.
 
 ## Features
 ### Authenticate to Salesforce
