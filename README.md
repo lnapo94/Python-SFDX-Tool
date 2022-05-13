@@ -32,7 +32,7 @@ Type `pydx --help` to see all the available commands. If you would like to have 
 ## Installation
 To install `pydx` in your local environment, run the following command:
 ```
-pip install pydx
+pip install Python-SFDX-Toolkit
 ```
 
 Once installed, go to the root folder of a Salesforce project and type:
@@ -157,7 +157,7 @@ def enableClassAccesses(context, helpers):
 
 ## Changelog
 
-* `0.1.0`: First release with basic features
+* `0.0.1`: First release with basic features
   * Deploy/Retrieve metadata logging in with username and password
   * Deploy/Retrieve metadata using the SFDX wrapper
   * Simple Plugin Engine to perform various tasks on metadatas

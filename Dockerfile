@@ -22,4 +22,4 @@ RUN apt-get -y install nodejs
 RUN npm install sfdx-cli --global 
 
 # Install PYDX
-RUN python3 -m pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ pydx
+RUN python3 -m pip install https://files.pythonhosted.org/packages/8e/42/043f67bd1e5a61c69a760eda618102adf850fbf52782750be22bc2b66951/Python%20SFDX%20Toolkit-0.0.1.tar.gz

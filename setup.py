@@ -1,8 +1,8 @@
 from setuptools import setup, find_packages
 
 setup(
-  name='pydx',
-  version='0.25.6',
+  name='Python SFDX Toolkit',
+  version='0.0.1',
   description='Python SFDX Toolkit',
   license='MIT',
   author='Luca Napoletano',
