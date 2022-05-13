@@ -155,8 +155,9 @@ def progress(count, total, bar_len=60, suffix=''):
 @main.command(name='retrieve-sfdx')
 @click.option('-f', '--folder', 'folder', required=True, help='Where to unpack the retrieved metadatas', default=DEFAULT_SRC, type=click.Path(exists=True))
 @click.option('-o', '--orgalias', 'orgAlias', required=True, help='The organization alias')
-@click.option('-p', '--packageFile', 'packageFile', required=True, help='Path to package.xml file', default=DEFAULT_SRC, type=click.Path(exists=True))
-def retrieveSFDX(folder, orgAlias, packageFile):
+@click.option('-p', '--packageFile', 'packageFile', required=True, help='Path to package.xml file', default=f'{DEFAULT_SRC}/package.xml', type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option('-se', '--settingFile', 'settingFile', help='Setting file', default=f'{PWD}/pydx.json', type=click.Path(exists=True, file_okay=True, dir_okay=False))
+def retrieveSFDX(folder, orgAlias, packageFile, settingFile):
   """Using the standard SFDX Salesforce CLI, performs a retrieve operation"""
   click.echo('Retrieve SFDX')
 
@@ -172,12 +173,17 @@ def retrieveSFDX(folder, orgAlias, packageFile):
   os.remove(f'{folder}/unpackaged.zip')
   dir_util.remove_tree(f'{folder}/unpackaged')
 
+  pe = PluginEngine(settingFile=settingFile, outputFolder=folder)
+
+  pe.postRetrieve()
+
 @main.command(name='deploy-sfdx')
 @click.option('-f', '--folder', 'folder', required=True, help='Where metadata and package.xml are', default=DEFAULT_SRC, type=click.Path(exists=True))
 @click.option('-o', '--orgalias', 'orgAlias', required=True, help='The organization alias')
 @click.option('-v', '--validate', 'validate', help='Perform only a validation', is_flag=True, default=False)
 @click.option('-l', '--runLocalTests', 'runLocalTests', help='Run also Local Tests for this deploy', is_flag=True, default=False)
-def deploySFDX(folder, orgAlias, validate, runLocalTests):
+@click.option('-se', '--settingFile', 'settingFile', help='Setting file', default=f'{PWD}/pydx.json', type=click.Path(exists=True, file_okay=True, dir_okay=False))
+def deploySFDX(folder, orgAlias, validate, runLocalTests, settingFile):
   """Using the standard SFDX Salesforce CLI, performs a deploy operation"""
   click.echo('Deploy SFDX')
 
@@ -188,6 +194,10 @@ def deploySFDX(folder, orgAlias, validate, runLocalTests):
 
   if runLocalTests:
     command.append('-l')
+
+  pe = PluginEngine(settingFile=settingFile, outputFolder=folder)
+
+  pe.preDeploy()
 
   result = subprocess.run(command)
   
