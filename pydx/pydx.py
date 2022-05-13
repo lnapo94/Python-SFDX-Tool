@@ -13,10 +13,10 @@ from yaspin import yaspin
 
 from zipfile import ZipFile
 
-from sfdc import Sfdc
+from .sfdc import Sfdc
 
-from engine.plugin_engine import PluginEngine
-from utils import sfdc_utils
+from .engine.plugin_engine import PluginEngine
+from .utils import sfdc_utils
 
 DEFAULT_SRC = os.path.join(os.getcwd(), 'src')
 PWD = os.getcwd()
