@@ -3,6 +3,7 @@ import os
 import time
 import io
 import sys
+import json
 from distutils import dir_util
 
 import subprocess
@@ -25,6 +26,18 @@ PWD = os.getcwd()
 def main():
   """PYDX: A revisited Salesforce SFDX CLI Toolkit"""
   pass
+
+@main.command(name='init')
+def initConfig():
+  """Create the "pydx.json" file inside the current directory"""
+  jsonConfig = {
+    'preDeploy': [],
+    'postRetrieve': []
+  }
+
+  with open(f'{PWD}/pydx.json', 'w') as json_file:
+    json.dump(jsonConfig, json_file, indent=2)
+  
 
 @main.command(name='retrieve')
 @click.option('-u', '--username', 'username', required=True, help='Salesforce username')
