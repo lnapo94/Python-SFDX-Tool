@@ -157,7 +157,7 @@ def enableClassAccesses(context, helpers):
 
 ## Changelog
 
-* `0.0.1`: First release with basic features
+* `0.0.3`: First release with basic features
   * Deploy/Retrieve metadata logging in with username and password
   * Deploy/Retrieve metadata using the SFDX wrapper
   * Simple Plugin Engine to perform various tasks on metadatas
