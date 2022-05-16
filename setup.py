@@ -2,11 +2,12 @@ from setuptools import setup, find_packages
 
 setup(
   name='Python SFDX Toolkit',
-  version='0.0.3',
+  version='0.0.4',
   description='Python SFDX Toolkit',
   license='MIT',
   author='Luca Napoletano',
   author_email='lnapo94@gmail.com',
+  url='https://github.com/lnapo94/Python-SFDX-Tool',
   python_requires='>=3.9',
   packages=find_packages(),
   install_requires=[
